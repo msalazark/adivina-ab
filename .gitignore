@@ -28,6 +28,12 @@ coverage/
 .vercel
 .netlify
 
+# Datos de terceros a importar (no se republican en un repositorio público)
+archivo/
+
+# Informe de la última importación
+import-report.json
+
 # Sistema operativo y certificados locales
 .DS_Store
 *.pem
