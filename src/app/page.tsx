@@ -1,12 +1,12 @@
 import Link from "next/link";
 import TestCard from "@/components/TestCard";
-import { getMyVotes, listTests } from "@/lib/data";
+import { getMyVotes, isPlayable, listTests } from "@/lib/data";
 
 export default async function Home() {
   const [tests, votes] = await Promise.all([listTests(), getMyVotes()]);
   const numbered = tests.map((t, i) => ({ t, n: i + 1 }));
   const latest = numbered.slice(-6).reverse();
-  const pending = tests.filter((t) => !votes[t.id]).length;
+  const pending = tests.filter((t) => isPlayable(t) && !votes[t.id]).length;
 
   return (
     <main className="wrap">

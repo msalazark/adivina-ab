@@ -3,7 +3,9 @@ import type { TestTeaser, VariantKey } from "@/lib/types";
 import { formatLift } from "@/lib/format";
 
 export default function TestCard({ test, number, vote }: { test: TestTeaser; number: number; vote?: VariantKey }) {
-  const state = !vote ? (
+  const state = test.winner === null ? (
+    <span className="state">{test.results_locked ? "Resultado no público" : "Sin resultado"}</span>
+  ) : !vote ? (
     <span className="state">Sin jugar</span>
   ) : vote === test.winner ? (
     <span className="state ok">Acertaste</span>

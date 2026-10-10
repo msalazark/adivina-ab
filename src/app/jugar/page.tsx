@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getMyVotes, listTests } from "@/lib/data";
+import { getMyVotes, isPlayable, listTests } from "@/lib/data";
 
 export const metadata = { title: "Jugar" };
 
 /** Lleva al primer test publicado que el visitante todavía no ha jugado. */
 export default async function Jugar() {
   const [tests, votes] = await Promise.all([listTests(), getMyVotes()]);
-  const published = tests.filter((t) => t.status === "publicado");
+  const published = tests.filter(isPlayable);
   const next = published.find((t) => !votes[t.id]);
   if (next) redirect(`/tests/${next.slug}`);
 

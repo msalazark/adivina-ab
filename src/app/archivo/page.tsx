@@ -1,13 +1,15 @@
 import Link from "next/link";
 import TestCard from "@/components/TestCard";
-import { getMyVotes, listTests } from "@/lib/data";
+import { getMyVotes, isPlayable, listTests } from "@/lib/data";
 
 export const metadata = { title: "Archivo" };
 
-type Props = { searchParams: Promise<{ cat?: string; q?: string; estado?: string }> };
+const PER_PAGE = 60;
+
+type Props = { searchParams: Promise<{ cat?: string; q?: string; estado?: string; p?: string }> };
 
 export default async function Archivo({ searchParams }: Props) {
-  const { cat = "", q = "", estado = "" } = await searchParams;
+  const { cat = "", q = "", estado = "", p = "1" } = await searchParams;
   const [tests, votes] = await Promise.all([listTests(), getMyVotes()]);
   const numbered = tests.map((t, i) => ({ t, n: i + 1 }));
   const cats = Array.from(new Set(tests.map((t) => t.category))).sort();
@@ -16,21 +18,27 @@ export default async function Archivo({ searchParams }: Props) {
   const shown = numbered
     .filter(({ t }) => !cat || t.category === cat)
     .filter(({ t }) => {
-      if (estado === "pendientes") return !votes[t.id];
+      if (estado === "pendientes") return isPlayable(t) && !votes[t.id];
       if (estado === "jugados") return Boolean(votes[t.id]);
+      if (estado === "catalogo") return t.winner === null;
       return true;
     })
     .filter(({ t }) => !needle || [t.title, t.company, t.industry, t.category, ...(t.tags ?? [])].join(" ").toLowerCase().includes(needle))
     .reverse();
 
-  const href = (next: { cat?: string; estado?: string }) => {
-    const p = new URLSearchParams();
+  const pages = Math.max(1, Math.ceil(shown.length / PER_PAGE));
+  const page = Math.min(pages, Math.max(1, Number.parseInt(p, 10) || 1));
+  const visible = shown.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  const href = (next: { cat?: string; estado?: string; p?: number }) => {
+    const params = new URLSearchParams();
     const c = next.cat ?? cat;
     const e = next.estado ?? estado;
-    if (c) p.set("cat", c);
-    if (e) p.set("estado", e);
-    if (q) p.set("q", q);
-    const s = p.toString();
+    if (c) params.set("cat", c);
+    if (e) params.set("estado", e);
+    if (q) params.set("q", q);
+    if (next.p && next.p > 1) params.set("p", String(next.p));
+    const s = params.toString();
     return s ? `/archivo?${s}` : "/archivo";
   };
 
@@ -68,6 +76,7 @@ export default async function Archivo({ searchParams }: Props) {
           ["", "Todos"],
           ["pendientes", "Sin jugar"],
           ["jugados", "Jugados"],
+          ["catalogo", "Solo catálogo"],
         ].map(([v, l]) => (
           <Link key={v} href={href({ estado: v })} aria-current={estado === v ? "true" : undefined}>
             {l}
@@ -77,7 +86,7 @@ export default async function Archivo({ searchParams }: Props) {
 
       {shown.length ? (
         <div className="cards">
-          {shown.map(({ t, n }) => (
+          {visible.map(({ t, n }) => (
             <TestCard key={t.id} test={t} number={n} vote={votes[t.id]} />
           ))}
         </div>
@@ -85,6 +94,16 @@ export default async function Archivo({ searchParams }: Props) {
         <div className="notice">
           <p>Ningún test coincide con esos filtros.</p>
         </div>
+      )}
+
+      {pages > 1 && (
+        <nav className="filters" aria-label="Paginación" style={{ marginTop: "1.5rem" }}>
+          {page > 1 && <Link href={href({ p: page - 1 })}>← Anterior</Link>}
+          <span className="label">
+            Página {page} de {pages} · {shown.length} tests
+          </span>
+          {page < pages && <Link href={href({ p: page + 1 })}>Siguiente →</Link>}
+        </nav>
       )}
     </main>
   );

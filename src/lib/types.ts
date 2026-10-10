@@ -21,6 +21,7 @@ export type Variant = {
 };
 
 export type TestStatus = "borrador" | "publicado";
+export type Outcome = "win" | "loss" | "mixed" | "flat" | "unknown";
 
 export type Test = {
   id: string;
@@ -36,7 +37,8 @@ export type Test = {
   source_url: string | null;
   context: string | null;
   hypothesis: string | null;
-  winner: VariantKey;
+  /** null cuando el resultado no es público: el test se muestra como catálogo y no se juega. */
+  winner: VariantKey | null;
   metric: string | null;
   lift: number | null;
   confidence: number | null;
@@ -49,11 +51,28 @@ export type Test = {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  // Datos del archivo importado
+  source_id: string | null;
+  page_type: string | null;
+  pattern: string | null;
+  pattern_number: number | null;
+  author: string | null;
+  tested_on: string | null;
+  test_year: number | null;
+  sample_size: string | null;
+  duration: string | null;
+  significance: string | null;
+  revenue_impact: string | null;
+  power_5pct: number | null;
+  outcome: Outcome | null;
+  results_locked: boolean;
+  doc_quality: number | null;
+  review_flags: string[];
   variants: Variant[];
 };
 
 /** Lo que se muestra antes de votar: sin ganadora ni resultados. */
-export type TestTeaser = Pick<Test, "id" | "slug" | "title" | "company" | "industry" | "category" | "device" | "status" | "published_at" | "tags" | "winner" | "lift">;
+export type TestTeaser = Pick<Test, "id" | "slug" | "title" | "company" | "industry" | "category" | "device" | "status" | "published_at" | "tags" | "winner" | "lift" | "results_locked">;
 
 export const CATEGORIES = [
   "Navegación",

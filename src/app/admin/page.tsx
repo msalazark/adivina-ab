@@ -3,15 +3,22 @@ import { supabaseServer } from "@/lib/supabase/server";
 import DeleteButton from "@/components/admin/DeleteButton";
 import { formatLift } from "@/lib/format";
 
-type Props = { searchParams: Promise<{ borrado?: string }> };
+const PER_PAGE = 100;
+
+type Props = { searchParams: Promise<{ borrado?: string; p?: string }> };
 
 export default async function AdminHome({ searchParams }: Props) {
-  const { borrado } = await searchParams;
+  const { borrado, p = "1" } = await searchParams;
+  const page = Math.max(1, Number.parseInt(p, 10) || 1);
+  const from = (page - 1) * PER_PAGE;
   const db = await supabaseServer();
-  const { data: tests, error } = await db
+  const { data: tests, error, count } = await db
     .from("tests")
-    .select("id, slug, title, company, category, status, winner, lift, updated_at, variants(id, variant_images(id))")
-    .order("updated_at", { ascending: false });
+    .select("id, slug, title, company, category, status, winner, lift, updated_at, variants(id, variant_images(id))", { count: "exact" })
+    .order("updated_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(from, from + PER_PAGE - 1);
+  const pages = Math.max(1, Math.ceil((count ?? 0) / PER_PAGE));
 
   return (
     <div style={{ display: "grid", gap: "1rem" }}>
@@ -51,7 +58,7 @@ export default async function AdminHome({ searchParams }: Props) {
                       <span className={`state${t.status === "publicado" ? " ok" : ""}`}>{t.status}</span>
                     </td>
                     <td className="mono">
-                      {t.winner} {t.lift !== null ? formatLift(Number(t.lift)) : ""}
+                      {t.winner ?? "—"} {t.lift !== null ? formatLift(Number(t.lift)) : ""}
                     </td>
                     <td className="mono">{shots}</td>
                     <td className="acts">
@@ -74,6 +81,15 @@ export default async function AdminHome({ searchParams }: Props) {
           </p>
         )}
       </div>
+      {pages > 1 && (
+        <p className="src" style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          {page > 1 && <Link href={`/admin?p=${page - 1}`}>← Anterior</Link>}
+          <span className="mono">
+            Página {page} de {pages} · {count} tests
+          </span>
+          {page < pages && <Link href={`/admin?p=${page + 1}`}>Siguiente →</Link>}
+        </p>
+      )}
     </div>
   );
 }

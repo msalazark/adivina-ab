@@ -60,7 +60,9 @@ export async function saveTest(input: TestInput): Promise<SaveResult> {
   if (!title) return { ok: false, error: "Escribe la pregunta del test." };
   const variants = input.variants.slice(0, 3).map((v, i) => ({ ...v, key: VARIANT_KEYS[i] }));
   if (variants.length < 2) return { ok: false, error: "El test necesita al menos dos versiones." };
-  if (!variants.some((v) => v.key === input.winner)) return { ok: false, error: "Elige cuál versión ganó." };
+  // Ganadora vacía = resultado desconocido o no público (el test queda como catálogo, sin juego).
+  const winner = input.winner.trim() === "" ? null : input.winner;
+  if (winner !== null && !variants.some((v) => v.key === winner)) return { ok: false, error: "Elige cuál versión ganó." };
   const lift = toNum(input.lift);
   const confidence = toNum(input.confidence);
   if (Number.isNaN(lift)) return { ok: false, error: "El lift debe ser un número, por ejemplo 2.59 o -4." };
@@ -82,7 +84,7 @@ export async function saveTest(input: TestInput): Promise<SaveResult> {
     source_url: /^https?:\/\//i.test(input.source_url.trim()) ? input.source_url.trim() : null,
     context: input.context.trim() || null,
     hypothesis: input.hypothesis.trim() || null,
-    winner: input.winner,
+    winner,
     metric: input.metric.trim() || null,
     lift,
     confidence,

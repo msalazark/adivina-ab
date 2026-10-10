@@ -221,6 +221,7 @@ export default function TestForm({ initial, testId }: { initial: FormState; test
           <label className="fl">
             <span>Versión ganadora</span>
             <select id="winner" value={f.winner} onChange={(e) => set("winner", e.target.value)}>
+              <option value="">Sin resultado (solo catálogo)</option>
               {f.variants.map((v) => (
                 <option key={v.key}>{v.key}</option>
               ))}

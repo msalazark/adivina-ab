@@ -9,6 +9,8 @@ const TEST_SELECT = `
   id, slug, title, company, industry, country, category, device, tool, source_name, source_url,
   context, hypothesis, winner, metric, lift, confidence, summary, segments, learnings, ideas, tags,
   status, published_at, created_at, updated_at,
+  source_id, page_type, pattern, pattern_number, author, tested_on, test_year, sample_size, duration,
+  significance, revenue_impact, power_5pct, outcome, results_locked, doc_quality, review_flags,
   variants ( id, key, name, description, images:variant_images ( id, path, width, height, label, sort ) )
 `;
 
@@ -21,6 +23,8 @@ function normalize(row: Record<string, unknown>): Test {
     ...t,
     lift: t.lift === null ? null : Number(t.lift),
     confidence: t.confidence === null ? null : Number(t.confidence),
+    power_5pct: t.power_5pct === null || t.power_5pct === undefined ? null : Number(t.power_5pct),
+    review_flags: t.review_flags ?? [],
     segments: Array.isArray(t.segments) ? t.segments : [],
     variants,
   };
@@ -46,17 +50,30 @@ export const isAdmin = cache(async () => {
   return data === true;
 });
 
+/** PostgREST devuelve como máximo 1000 filas por consulta: se pagina para no truncar el archivo. */
+const PAGE = 1000;
+
 /** Tests visibles para el visitante, del más antiguo al más nuevo (así se numeran). */
 export const listTests = cache(async (): Promise<TestTeaser[]> => {
   const supabase = await supabaseServer();
-  const { data, error } = await supabase
-    .from("tests")
-    .select("id, slug, title, company, industry, category, device, status, published_at, tags, winner, lift, created_at")
-    .order("published_at", { ascending: true, nullsFirst: false })
-    .order("created_at", { ascending: true });
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => ({ ...r, lift: r.lift === null ? null : Number(r.lift) })) as TestTeaser[];
+  const rows: Record<string, unknown>[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("tests")
+      .select("id, slug, title, company, industry, category, device, status, published_at, tags, winner, lift, results_locked, created_at")
+      .order("published_at", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
+  }
+  return rows.map((r) => ({ ...r, lift: r.lift === null ? null : Number(r.lift) })) as unknown as TestTeaser[];
 });
+
+/** Un test se juega si está publicado y su ganadora es conocida. */
+export const isPlayable = (t: Pick<TestTeaser, "status" | "winner">) => t.status === "publicado" && t.winner !== null;
 
 export const getTestBySlug = cache(async (slug: string): Promise<Test | null> => {
   const supabase = await supabaseServer();
@@ -96,5 +113,5 @@ export async function getScore() {
     played++;
     if (v === t.winner) correct++;
   }
-  return { played, correct, total: tests.filter((t) => t.status === "publicado").length };
+  return { played, correct, total: tests.filter(isPlayable).length };
 }

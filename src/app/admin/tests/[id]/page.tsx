@@ -26,7 +26,7 @@ export default async function EditTest({ params, searchParams }: Props) {
     source_url: t.source_url ?? "",
     context: t.context ?? "",
     hypothesis: t.hypothesis ?? "",
-    winner: t.winner,
+    winner: t.winner ?? "",
     metric: t.metric ?? "",
     lift: t.lift === null ? "" : String(t.lift),
     confidence: t.confidence === null ? "" : String(t.confidence),

@@ -256,3 +256,9 @@ legend { font-family: var(--font-mono), monospace; font-size: 0.75rem; letter-sp
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* Ficha del test (datos del archivo importado) */
+.facts { margin: 0.4rem 0 0; display: grid; gap: 0.35rem; }
+.facts > div { display: grid; grid-template-columns: minmax(8rem, 40%) 1fr; gap: 0.75rem; font-size: 0.9rem; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Versus, { type VariantView } from "@/components/Versus";
 import SegmentChart from "@/components/SegmentChart";
-import { getMyVotes, getPoll, getTestBySlug, listTests } from "@/lib/data";
+import { getMyVotes, getPoll, getTestBySlug, isPlayable, listTests } from "@/lib/data";
 import { publicImageUrl } from "@/lib/env";
 import { formatLift } from "@/lib/format";
 import type { Test } from "@/lib/types";
@@ -59,7 +59,7 @@ export default async function TestPage({ params }: Params) {
   const [all, votes] = await Promise.all([listTests(), getMyVotes()]);
   const mine = votes[test.id];
   const number = all.findIndex((t) => t.id === test.id) + 1;
-  const nextTest = all.find((t) => t.status === "publicado" && !votes[t.id] && t.id !== test.id);
+  const nextTest = all.find((t) => isPlayable(t) && !votes[t.id] && t.id !== test.id);
   const poll = mine ? await getPoll(test.id) : {};
 
   const variants: VariantView[] = test.variants.map((v) => ({
@@ -71,6 +71,21 @@ export default async function TestPage({ params }: Params) {
 
   const ok = mine === test.winner;
   const winV = test.variants.find((v) => v.key === test.winner);
+  const hasResult = test.winner !== null;
+  // Sin ganadora conocida no hay nada que adivinar ni que ocultar: el test se muestra como catálogo.
+  const revealed = Boolean(mine) || test.status === "borrador" || !hasResult;
+  const facts: [string, string | null][] = [
+    ["Tipo de página", test.page_type],
+    ["Patrón", test.pattern ? `${test.pattern}${test.pattern_number ? ` (#${test.pattern_number})` : ""}` : null],
+    ["Muestra", test.sample_size],
+    ["Poder estadístico (efecto 5 %)", test.power_5pct !== null ? `${test.power_5pct}%` : null],
+    ["Duración", test.duration],
+    ["Significancia", test.significance],
+    ["Impacto en ingresos", test.revenue_impact],
+    ["Autoría", test.author],
+    ["Fecha del test", test.tested_on ? new Date(test.tested_on).toLocaleDateString("es", { dateStyle: "long", timeZone: "UTC" }) : test.test_year ? String(test.test_year) : null],
+  ];
+  const shownFacts = facts.filter((f): f is [string, string] => Boolean(f[1]));
 
   return (
     <main className="wrap">
@@ -109,21 +124,30 @@ export default async function TestPage({ params }: Params) {
         testId={test.id}
         slug={test.slug}
         variants={variants}
-        winner={mine ? test.winner : undefined}
+        winner={mine && test.winner ? test.winner : undefined}
         mine={mine}
-        canVote={test.status === "publicado"}
+        canVote={test.status === "publicado" && hasResult}
         action={castVote}
       />
 
-      {test.status === "borrador" && !mine && (
+      {test.status === "borrador" && !mine && hasResult && (
         <p className="msg err" style={{ marginTop: "1rem" }}>
           Este test es un borrador: no admite votos. Así se verá el resultado cuando se publique.
         </p>
       )}
 
-      {(mine || test.status === "borrador") && (
+      {revealed && (
         <section className="result" id="resultado" aria-live="polite">
-          {mine ? (
+          {!hasResult ? (
+            <div className="verdict">
+              <h2>{test.results_locked ? "El resultado no es público" : "Sin resultado conocido"}</h2>
+              <p>
+                {test.results_locked
+                  ? "La fuente publica las dos versiones, pero deja el resultado y el lift tras una membresía. Por eso este test no se puede jugar."
+                  : "La fuente no declara qué versión ganó, así que este test no se puede jugar."}
+              </p>
+            </div>
+          ) : mine ? (
             <div className={`verdict ${ok ? "ok" : "ko"}`}>
               <h2>{ok ? "Acertaste" : "Esta vez no"}</h2>
               <p>
@@ -140,6 +164,7 @@ export default async function TestPage({ params }: Params) {
           <div className="r-grid">
             <div className="r-cell">
               <div className="label">{test.metric || "Métrica principal"}</div>
+              {!hasResult && test.outcome && test.outcome !== "unknown" && <p className="src">Resultado declarado: {test.outcome}</p>}
               {test.lift !== null && <div className={`lift ${test.lift >= 0 ? "pos" : "neg"}`}>{formatLift(test.lift)}</div>}
               {test.confidence !== null && (
                 <div className="conf">
@@ -160,10 +185,29 @@ export default async function TestPage({ params }: Params) {
                   <SegmentChart segments={test.segments} />
                 </>
               )}
-              <div className="label" style={{ marginTop: test.segments.length ? "1.1rem" : 0 }}>
-                Qué votaron los demás
-              </div>
-              <Poll test={test} counts={poll} />
+              {hasResult && (
+                <>
+                  <div className="label" style={{ marginTop: test.segments.length ? "1.1rem" : 0 }}>
+                    Qué votaron los demás
+                  </div>
+                  <Poll test={test} counts={poll} />
+                </>
+              )}
+              {shownFacts.length > 0 && (
+                <>
+                  <div className="label" style={{ marginTop: test.segments.length || hasResult ? "1.1rem" : 0 }}>
+                    Ficha del test
+                  </div>
+                  <dl className="facts">
+                    {shownFacts.map(([k, v]) => (
+                      <div key={k}>
+                        <dt>{k}</dt>
+                        <dd>{v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </>
+              )}
             </div>
           </div>
           {(test.learnings.length > 0 || test.ideas.length > 0) && (
