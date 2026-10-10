@@ -1,0 +1,33 @@
+# Dependencias
+node_modules/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Variables de entorno (se conserva la plantilla)
+.env*
+!.env.example
+
+# Registros
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Pruebas y cachés
+coverage/
+.turbo/
+
+# Despliegues
+.vercel
+.netlify
+
+# Sistema operativo y certificados locales
+.DS_Store
+*.pem
