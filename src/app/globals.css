@@ -262,3 +262,11 @@ legend { font-family: var(--font-mono), monospace; font-size: 0.75rem; letter-sp
 .facts > div { display: grid; grid-template-columns: minmax(8rem, 40%) 1fr; gap: 0.75rem; font-size: 0.9rem; }
 .facts dt { color: var(--muted); }
 .facts dd { margin: 0; overflow-wrap: anywhere; }
+
+/* Estimación de Claude */
+.ai-verdict { margin: 0 1.25rem 1rem; padding: 1rem 1.1rem; border: 1px dashed var(--line); border-radius: var(--radius); background: var(--surface); }
+.ai-verdict p { margin: 0.4rem 0 0; max-width: 70ch; }
+.ai-pick { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.ai-criteria { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.chip.conf-alta { color: var(--ink); border-color: currentColor; }
+.chip.conf-baja { font-style: italic; }

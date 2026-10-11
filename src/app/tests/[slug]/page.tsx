@@ -72,6 +72,7 @@ export default async function TestPage({ params }: Params) {
   const ok = mine === test.winner;
   const winV = test.variants.find((v) => v.key === test.winner);
   const mode = test.play_mode;
+  const hasOfficial = test.winner !== null;
   // Una biblioteca no se juega: no hay nada que ocultar. En quiz y encuesta, el resultado espera al voto.
   const revealed = Boolean(mine) || test.status === "borrador" || mode === "library";
   const outcomeText: Record<string, string> = {
@@ -177,11 +178,20 @@ export default async function TestPage({ params }: Params) {
             </div>
           ) : mode === "poll" ? (
             <div className="verdict">
-              <h2>{mine ? `Votaste la ${mine}` : "Vista previa de la encuesta"}</h2>
+              <h2>
+                {!mine
+                  ? "Vista previa de la encuesta"
+                  : test.ai_winner
+                    ? mine === test.ai_winner
+                      ? `Votaste la ${mine}: coincides con Claude`
+                      : `Votaste la ${mine}: Claude eligió la ${test.ai_winner}`
+                    : `Votaste la ${mine}`}
+              </h2>
               <p>
                 {test.results_locked
-                  ? "La fuente deja el resultado tras una membresía, así que no hay respuesta oficial. Esto es lo que votó la comunidad."
-                  : "La fuente no declara qué versión ganó. Esto es lo que votó la comunidad."}
+                  ? "La fuente deja el resultado tras una membresía, así que no hay respuesta oficial."
+                  : "La fuente no declara qué versión ganó."}{" "}
+                {test.ai_winner ? "Abajo tienes la estimación de Claude y lo que votó la comunidad." : "Esto es lo que votó la comunidad."}
               </p>
             </div>
           ) : mine ? (
@@ -196,6 +206,34 @@ export default async function TestPage({ params }: Params) {
             <div className="verdict ok">
               <h2>Vista previa del resultado</h2>
               <p>Ganadora: {test.winner}</p>
+            </div>
+          )}
+          {test.ai_winner && (
+            <div className="ai-verdict">
+              <div className="label">Estimación de Claude · no es el resultado real</div>
+              <p className="ai-pick">
+                Claude eligió la <b>{test.ai_winner}</b>
+                {test.ai_confidence && <span className={`chip conf-${test.ai_confidence}`}>confianza {test.ai_confidence}</span>}
+                {hasOfficial && (
+                  <span className={`chip ${test.ai_winner === test.winner ? "ok" : "ko"}`}>
+                    {test.ai_winner === test.winner ? "Claude acertó" : "Claude falló"}
+                  </span>
+                )}
+              </p>
+              {test.ai_rationale && <p>{test.ai_rationale}</p>}
+              {test.ai_criteria.length > 0 && (
+                <p className="ai-criteria">
+                  {test.ai_criteria.map((c) => (
+                    <span className="chip" key={c}>
+                      {c}
+                    </span>
+                  ))}
+                </p>
+              )}
+              <p className="src">
+                Estimación generada por Claude (IA){test.ai_model ? ` · ${test.ai_model}` : ""} a partir de la descripción del cambio, el patrón de diseño y los datos
+                del test. Puede equivocarse y no sustituye al resultado real.
+              </p>
             </div>
           )}
           <div className="r-grid">

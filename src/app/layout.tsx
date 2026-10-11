@@ -45,6 +45,11 @@ async function Score() {
         <span className="mono">
           {s.correct}/{s.played}
         </span>
+        {s.aiPlayed > 0 && (
+          <span className="mono" title="Veces que coincidiste con la estimación de Claude en tests sin resultado público" style={{ opacity: 0.75 }}>
+            · con Claude {s.aiAgree}/{s.aiPlayed}
+          </span>
+        )}
       </div>
     );
   } catch {

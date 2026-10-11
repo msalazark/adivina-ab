@@ -23,6 +23,7 @@ export type Variant = {
 export type TestStatus = "borrador" | "publicado";
 /** quiz: ganadora conocida · poll: capturas sin ganadora oficial (se ve el voto de la comunidad) · library: solo consulta. */
 export type PlayMode = "quiz" | "poll" | "library";
+export type Confidence = "alta" | "media" | "baja";
 export type Outcome = "win" | "loss" | "mixed" | "flat" | "unknown";
 
 export type Test = {
@@ -69,13 +70,20 @@ export type Test = {
   outcome: Outcome | null;
   results_locked: boolean;
   play_mode: PlayMode;
+  // Estimación de Claude (no es el resultado real)
+  ai_winner: VariantKey | null;
+  ai_confidence: Confidence | null;
+  ai_rationale: string | null;
+  ai_criteria: string[];
+  ai_model: string | null;
+  ai_generated_at: string | null;
   doc_quality: number | null;
   review_flags: string[];
   variants: Variant[];
 };
 
 /** Lo que se muestra antes de votar: sin ganadora ni resultados. */
-export type TestTeaser = Pick<Test, "id" | "slug" | "title" | "company" | "industry" | "category" | "device" | "status" | "published_at" | "tags" | "winner" | "lift" | "results_locked" | "play_mode">;
+export type TestTeaser = Pick<Test, "id" | "slug" | "title" | "company" | "industry" | "category" | "device" | "status" | "published_at" | "tags" | "winner" | "lift" | "results_locked" | "play_mode" | "ai_winner">;
 
 export const CATEGORIES = [
   "Navegación",

@@ -10,7 +10,7 @@ const TEST_SELECT = `
   context, hypothesis, winner, metric, lift, confidence, summary, segments, learnings, ideas, tags,
   status, published_at, created_at, updated_at,
   source_id, page_type, pattern, pattern_number, author, tested_on, test_year, sample_size, duration,
-  significance, revenue_impact, power_5pct, outcome, results_locked, play_mode, doc_quality, review_flags,
+  significance, revenue_impact, power_5pct, outcome, results_locked, play_mode, ai_winner, ai_confidence, ai_rationale, ai_criteria, ai_model, ai_generated_at, doc_quality, review_flags,
   variants ( id, key, name, description, images:variant_images ( id, path, width, height, label, sort ) )
 `;
 
@@ -25,6 +25,7 @@ function normalize(row: Record<string, unknown>): Test {
     confidence: t.confidence === null ? null : Number(t.confidence),
     power_5pct: t.power_5pct === null || t.power_5pct === undefined ? null : Number(t.power_5pct),
     review_flags: t.review_flags ?? [],
+    ai_criteria: t.ai_criteria ?? [],
     segments: Array.isArray(t.segments) ? t.segments : [],
     variants,
   };
@@ -60,7 +61,7 @@ export const listTests = cache(async (): Promise<TestTeaser[]> => {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("tests")
-      .select("id, slug, title, company, industry, category, device, status, published_at, tags, winner, lift, results_locked, play_mode, created_at")
+      .select("id, slug, title, company, industry, category, device, status, published_at, tags, winner, lift, results_locked, play_mode, ai_winner, created_at")
       .order("published_at", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
@@ -109,12 +110,19 @@ export async function getScore() {
   const [tests, votes] = await Promise.all([listTests(), getMyVotes()]);
   let played = 0;
   let correct = 0;
+  let aiPlayed = 0;
+  let aiAgree = 0;
   for (const t of tests) {
-    if (t.play_mode !== "quiz") continue; // las encuestas no tienen respuesta correcta
     const v = votes[t.id];
     if (!v) continue;
-    played++;
-    if (v === t.winner) correct++;
+    if (t.play_mode === "quiz") {
+      played++;
+      if (v === t.winner) correct++;
+    } else if (t.play_mode === "poll" && t.ai_winner) {
+      // Encuestas: no hay respuesta correcta; se compara con la estimación de Claude.
+      aiPlayed++;
+      if (v === t.ai_winner) aiAgree++;
+    }
   }
-  return { played, correct, total: tests.filter(isQuiz).length };
+  return { played, correct, aiPlayed, aiAgree, total: tests.filter(isQuiz).length };
 }
