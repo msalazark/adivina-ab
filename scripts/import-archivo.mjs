@@ -40,7 +40,8 @@ const LIMIT = args.limit ? Number(args.limit) : Infinity;
 const CONCURRENCY = Math.max(1, Number(args.concurrency ?? 6));
 const BUCKET = "test-images";
 const MAX_BYTES = 5 * 1024 * 1024; // límite del bucket
-const MIN_WIDTH = 400; // por debajo suele ser una miniatura de la página de origen
+const MIN_WIDTH = 400; // por debajo suele ser una miniatura de la página de origen…
+const MIN_TALL = 700; // …salvo las capturas móviles, estrechas pero altas
 
 // ---------------------------------------------------------------------------
 // Utilidades
@@ -522,8 +523,8 @@ async function main() {
     await pool(withPairs, CONCURRENCY, async (it) => {
       try {
         const got = await Promise.all(it.variants.map((v) => fetchImage(v.images[0].url)));
-        const small = got.find((g) => g.width < MIN_WIDTH);
-        if (small) throw new Error(`captura demasiado pequeña (${small.width}px)`);
+        const small = got.find((g) => g.width < MIN_WIDTH && g.height < MIN_TALL);
+        if (small) throw new Error(`captura demasiado pequeña (${small.width}×${small.height}px)`);
         it.variants.forEach((v, i) => (v.images[0].got = got[i]));
       } catch (e) {
         it.variants.forEach((v) => (v.images = []));
