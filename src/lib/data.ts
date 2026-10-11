@@ -10,7 +10,7 @@ const TEST_SELECT = `
   context, hypothesis, winner, metric, lift, confidence, summary, segments, learnings, ideas, tags,
   status, published_at, created_at, updated_at,
   source_id, page_type, pattern, pattern_number, author, tested_on, test_year, sample_size, duration,
-  significance, revenue_impact, power_5pct, outcome, results_locked, doc_quality, review_flags,
+  significance, revenue_impact, power_5pct, outcome, results_locked, play_mode, doc_quality, review_flags,
   variants ( id, key, name, description, images:variant_images ( id, path, width, height, label, sort ) )
 `;
 
@@ -60,7 +60,7 @@ export const listTests = cache(async (): Promise<TestTeaser[]> => {
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from("tests")
-      .select("id, slug, title, company, industry, category, device, status, published_at, tags, winner, lift, results_locked, created_at")
+      .select("id, slug, title, company, industry, category, device, status, published_at, tags, winner, lift, results_locked, play_mode, created_at")
       .order("published_at", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true })
       .order("id", { ascending: true })
@@ -72,8 +72,10 @@ export const listTests = cache(async (): Promise<TestTeaser[]> => {
   return rows.map((r) => ({ ...r, lift: r.lift === null ? null : Number(r.lift) })) as unknown as TestTeaser[];
 });
 
-/** Un test se juega si está publicado y su ganadora es conocida. */
-export const isPlayable = (t: Pick<TestTeaser, "status" | "winner">) => t.status === "publicado" && t.winner !== null;
+/** Se puede votar: está publicado y es un quiz (con ganadora) o una encuesta (con capturas). */
+export const isPlayable = (t: Pick<TestTeaser, "status" | "play_mode">) => t.status === "publicado" && t.play_mode !== "library";
+/** Cuenta para el puntaje: tiene respuesta correcta. */
+export const isQuiz = (t: Pick<TestTeaser, "status" | "play_mode">) => t.status === "publicado" && t.play_mode === "quiz";
 
 export const getTestBySlug = cache(async (slug: string): Promise<Test | null> => {
   const supabase = await supabaseServer();
@@ -108,10 +110,11 @@ export async function getScore() {
   let played = 0;
   let correct = 0;
   for (const t of tests) {
+    if (t.play_mode !== "quiz") continue; // las encuestas no tienen respuesta correcta
     const v = votes[t.id];
     if (!v) continue;
     played++;
     if (v === t.winner) correct++;
   }
-  return { played, correct, total: tests.filter(isPlayable).length };
+  return { played, correct, total: tests.filter(isQuiz).length };
 }

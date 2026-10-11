@@ -3,8 +3,10 @@ import type { TestTeaser, VariantKey } from "@/lib/types";
 import { formatLift } from "@/lib/format";
 
 export default function TestCard({ test, number, vote }: { test: TestTeaser; number: number; vote?: VariantKey }) {
-  const state = test.winner === null ? (
-    <span className="state">{test.results_locked ? "Resultado no público" : "Sin resultado"}</span>
+  const state = test.play_mode === "library" ? (
+    <span className="state">Caso documentado</span>
+  ) : test.play_mode === "poll" ? (
+    <span className="state">{vote ? "Votaste" : "Encuesta"}</span>
   ) : !vote ? (
     <span className="state">Sin jugar</span>
   ) : vote === test.winner ? (
@@ -24,7 +26,7 @@ export default function TestCard({ test, number, vote }: { test: TestTeaser; num
       <h3>{test.title}</h3>
       <div className="meta">
         {test.company && <span className="chip">{test.company}</span>}
-        {vote && test.lift !== null && (
+        {vote && test.play_mode === "quiz" && test.lift !== null && (
           <span className="chip mono">
             {test.winner} {formatLift(test.lift)}
           </span>

@@ -21,7 +21,7 @@ export async function castVote(formData: FormData) {
     .eq("test_id", testId)
     .eq("key", key)
     .eq("tests.status", "publicado")
-    .not("tests.winner", "is", null)
+    .neq("tests.play_mode", "library")
     .maybeSingle();
   if (!variant) return;
 

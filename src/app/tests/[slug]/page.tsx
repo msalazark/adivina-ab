@@ -71,9 +71,16 @@ export default async function TestPage({ params }: Params) {
 
   const ok = mine === test.winner;
   const winV = test.variants.find((v) => v.key === test.winner);
-  const hasResult = test.winner !== null;
-  // Sin ganadora conocida no hay nada que adivinar ni que ocultar: el test se muestra como catálogo.
-  const revealed = Boolean(mine) || test.status === "borrador" || !hasResult;
+  const mode = test.play_mode;
+  // Una biblioteca no se juega: no hay nada que ocultar. En quiz y encuesta, el resultado espera al voto.
+  const revealed = Boolean(mine) || test.status === "borrador" || mode === "library";
+  const outcomeText: Record<string, string> = {
+    win: "la variación mejoró la métrica principal",
+    loss: "la variación empeoró la métrica principal",
+    mixed: "el resultado fue mixto",
+    flat: "no hubo diferencia apreciable",
+    unknown: "la fuente no fue concluyente",
+  };
   const facts: [string, string | null][] = [
     ["Tipo de página", test.page_type],
     ["Patrón", test.pattern ? `${test.pattern}${test.pattern_number ? ` (#${test.pattern_number})` : ""}` : null],
@@ -120,17 +127,37 @@ export default async function TestPage({ params }: Params) {
         </div>
       )}
 
-      <Versus
-        testId={test.id}
-        slug={test.slug}
-        variants={variants}
-        winner={mine && test.winner ? test.winner : undefined}
-        mine={mine}
-        canVote={test.status === "publicado" && hasResult}
-        action={castVote}
-      />
+      {mode === "library" ? (
+        <section className="brief" aria-label="Cambio probado">
+          {variants.map((v) => (
+            <div key={v.key}>
+              <div className="label">
+                {v.key === "A" ? "Control" : "Variación"}
+                {v.name && v.name !== "Control" && v.name !== "Variación" ? ` · ${v.name}` : ""}
+              </div>
+              <p>{v.description || "—"}</p>
+            </div>
+          ))}
+        </section>
+      ) : (
+        <Versus
+          testId={test.id}
+          slug={test.slug}
+          variants={variants}
+          winner={mine && test.winner ? test.winner : undefined}
+          mine={mine}
+          canVote={test.status === "publicado"}
+          action={castVote}
+        />
+      )}
 
-      {test.status === "borrador" && !mine && hasResult && (
+      {mode === "poll" && !mine && test.status === "publicado" && (
+        <p className="src" style={{ marginTop: "1rem" }}>
+          Este test no tiene una respuesta oficial: vota con tu criterio y verás qué eligió la comunidad.
+        </p>
+      )}
+
+      {test.status === "borrador" && !mine && mode !== "library" && (
         <p className="msg err" style={{ marginTop: "1rem" }}>
           Este test es un borrador: no admite votos. Así se verá el resultado cuando se publique.
         </p>
@@ -138,13 +165,23 @@ export default async function TestPage({ params }: Params) {
 
       {revealed && (
         <section className="result" id="resultado" aria-live="polite">
-          {!hasResult ? (
+          {mode === "library" ? (
             <div className="verdict">
-              <h2>{test.results_locked ? "El resultado no es público" : "Sin resultado conocido"}</h2>
+              <h2>Caso documentado</h2>
+              <p>
+                {test.outcome && outcomeText[test.outcome]
+                  ? `Según la fuente, ${outcomeText[test.outcome]}. `
+                  : ""}
+                No hay capturas de las versiones, así que este caso es para consultar, no para jugar.
+              </p>
+            </div>
+          ) : mode === "poll" ? (
+            <div className="verdict">
+              <h2>{mine ? `Votaste la ${mine}` : "Vista previa de la encuesta"}</h2>
               <p>
                 {test.results_locked
-                  ? "La fuente publica las dos versiones, pero deja el resultado y el lift tras una membresía. Por eso este test no se puede jugar."
-                  : "La fuente no declara qué versión ganó, así que este test no se puede jugar."}
+                  ? "La fuente deja el resultado tras una membresía, así que no hay respuesta oficial. Esto es lo que votó la comunidad."
+                  : "La fuente no declara qué versión ganó. Esto es lo que votó la comunidad."}
               </p>
             </div>
           ) : mine ? (
@@ -164,8 +201,8 @@ export default async function TestPage({ params }: Params) {
           <div className="r-grid">
             <div className="r-cell">
               <div className="label">{test.metric || "Métrica principal"}</div>
-              {!hasResult && test.outcome && test.outcome !== "unknown" && <p className="src">Resultado declarado: {test.outcome}</p>}
-              {test.lift !== null && <div className={`lift ${test.lift >= 0 ? "pos" : "neg"}`}>{formatLift(test.lift)}</div>}
+
+              {(mode === "quiz" || mode === "library") && test.lift !== null && <div className={`lift ${test.lift >= 0 ? "pos" : "neg"}`}>{formatLift(test.lift)}</div>}
               {test.confidence !== null && (
                 <div className="conf">
                   <div className="label">
@@ -185,7 +222,7 @@ export default async function TestPage({ params }: Params) {
                   <SegmentChart segments={test.segments} />
                 </>
               )}
-              {hasResult && (
+              {mode !== "library" && (
                 <>
                   <div className="label" style={{ marginTop: test.segments.length ? "1.1rem" : 0 }}>
                     Qué votaron los demás
@@ -195,7 +232,7 @@ export default async function TestPage({ params }: Params) {
               )}
               {shownFacts.length > 0 && (
                 <>
-                  <div className="label" style={{ marginTop: test.segments.length || hasResult ? "1.1rem" : 0 }}>
+                  <div className="label" style={{ marginTop: test.segments.length || mode !== "library" ? "1.1rem" : 0 }}>
                     Ficha del test
                   </div>
                   <dl className="facts">

@@ -8,7 +8,10 @@
 // Opciones:
 //   --dir=archivo            carpeta con los archivos (por defecto ./archivo)
 //   --only=casos|goodui      importa solo una de las dos fuentes
-//   --only=jugables          solo los casos con ganador, lift y pareja de capturas válida (≈128)
+//   --only=jugables          solo los casos con ganador, lift y pareja de capturas válida (≈130)
+//   --only=casos             todos los casos; los que no tienen capturas entran como «biblioteca».
+//                            Correr después de «jugables»; lo ya importado se omite.
+//   --only=goodui            el catálogo de GoodUI como «encuesta» (capturas sin ganadora oficial)
 //   --status=borrador        estado inicial (borrador | publicado). Por defecto borrador
 //   --limit=N                procesa solo los primeros N de cada fuente (pruebas)
 //   --concurrency=6          descargas de imágenes en paralelo
@@ -200,10 +203,13 @@ function mapCase(r) {
   const { visible, leaked } = splitChange(r.change_tested);
   const resultsText = clean(r.results);
 
-  // Ganadora: solo se infiere de `outcome`; queda marcada para revisión humana.
+  // Ganadora: solo se infiere de `outcome` y solo si hay capturas que adivinar; queda marcada para revisión.
+  // Sin capturas el caso entra como «biblioteca»: se conserva el resultado declarado (`outcome`, lift)
+  // pero no se presenta como un test con respuesta.
+  const hasPair = HARVEST[r.case_id]?.status === "pareja" && !HARVEST[r.case_id]?.shared_page;
   let winner = null;
-  if (r.outcome === "win") winner = "B";
-  else if (r.outcome === "loss") winner = "A";
+  if (hasPair && r.outcome === "win") winner = "B";
+  else if (hasPair && r.outcome === "loss") winner = "A";
   if (winner) flags.push("winner_inferred");
   if (r.outcome === "win" && CONTROL_WON.test(`${resultsText ?? ""}`)) flags.push("control_may_have_won");
   if (TITLE_LEAK.test(title)) flags.push("title_may_leak_result");
@@ -254,6 +260,7 @@ function mapCase(r) {
       context: null,
       hypothesis,
       winner,
+      play_mode: winner ? "quiz" : "library",
       metric: clean(r.primary_metric),
       lift: typeof r.uplift_pct === "number" ? r.uplift_pct : numOrNull(r.uplift_pct),
       confidence: confidenceFrom(r.significance),
@@ -313,6 +320,7 @@ function mapGoodUi(r) {
       context: clean(r.change_tested),
       hypothesis: null,
       winner: null,
+      play_mode: "poll", // capturas sin resultado público: se vota y se ve a la comunidad
       metric: clean(r.primary_metric),
       lift: null,
       confidence: null,
@@ -528,6 +536,10 @@ async function main() {
         it.variants.forEach((v, i) => (v.images[0].got = got[i]));
       } catch (e) {
         it.variants.forEach((v) => (v.images = []));
+        // Sin sus capturas el caso deja de ser un quiz y pasa a la biblioteca.
+        it.test.winner = null;
+        it.test.play_mode = "library";
+        it.test.review_flags = it.test.review_flags.filter((f) => f !== "winner_inferred");
         it.test.review_flags.push("images_discarded");
         report.images.failed.push({ source_id: it.source_id, error: `pareja descartada: ${e.message ?? e}` });
       }
@@ -624,6 +636,10 @@ async function main() {
       if (++done % 25 === 0 || done === missing.length) console.log(`  versiones ${done}/${missing.length} · capturas ok ${report.images.ok} · fallidas ${report.images.failed.length}`);
     });
   }
+
+  // Recalcula el modo de juego (por si alguna descarga falló y un test quedó sin capturas).
+  const refreshed = await db.rpc("refresh_play_modes");
+  if (refreshed.error) console.log(`Aviso: no se pudo recalcular el modo de juego (${refreshed.error.message}). ¿Corriste la migración 0003?`);
 
   await writeFile("import-report.json", JSON.stringify({ ...report, stats }, null, 2));
   console.log(

@@ -20,7 +20,8 @@ export default async function Archivo({ searchParams }: Props) {
     .filter(({ t }) => {
       if (estado === "pendientes") return isPlayable(t) && !votes[t.id];
       if (estado === "jugados") return Boolean(votes[t.id]);
-      if (estado === "catalogo") return t.winner === null;
+      if (estado === "encuesta") return t.play_mode === "poll";
+      if (estado === "biblioteca") return t.play_mode === "library";
       return true;
     })
     .filter(({ t }) => !needle || [t.title, t.company, t.industry, t.category, ...(t.tags ?? [])].join(" ").toLowerCase().includes(needle))
@@ -76,7 +77,8 @@ export default async function Archivo({ searchParams }: Props) {
           ["", "Todos"],
           ["pendientes", "Sin jugar"],
           ["jugados", "Jugados"],
-          ["catalogo", "Solo catálogo"],
+          ["encuesta", "Encuestas"],
+          ["biblioteca", "Biblioteca"],
         ].map(([v, l]) => (
           <Link key={v} href={href({ estado: v })} aria-current={estado === v ? "true" : undefined}>
             {l}

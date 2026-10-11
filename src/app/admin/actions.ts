@@ -151,6 +151,8 @@ export async function saveTest(input: TestInput): Promise<SaveResult> {
     if (ins.error) return { ok: false, error: ins.error.message };
   }
   if (removedPaths.length) await db.storage.from(IMAGE_BUCKET).remove(removedPaths);
+  // quiz / encuesta / biblioteca según haya ganadora y capturas
+  await db.rpc("refresh_play_modes", { p_test: testId });
 
   revalidatePath("/", "layout");
   return { ok: true, id: testId, slug: saved.data.slug as string };

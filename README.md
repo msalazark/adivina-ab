@@ -22,7 +22,7 @@ Los votos son anónimos: el `proxy.ts` asigna a cada visitante un id en una cook
 ### 1. Supabase
 
 1. Crea un proyecto en [supabase.com](https://supabase.com).
-2. En **SQL Editor**, ejecuta `supabase/migrations/0001_init.sql`. Crea las tablas, las políticas RLS, el bucket público `test-images` y las funciones `is_admin()` y `test_poll()`. Después ejecuta `supabase/migrations/0002_import_archivo.sql` (ganadora opcional y campos para el archivo importado).
+2. En **SQL Editor**, ejecuta `supabase/migrations/0001_init.sql`. Crea las tablas, las políticas RLS, el bucket público `test-images` y las funciones `is_admin()` y `test_poll()`. Después ejecuta, en orden, `0002_import_archivo.sql` (ganadora opcional y campos del archivo importado) y `0003_play_mode.sql` (modo de juego de cada test).
 3. (Opcional) Ejecuta `supabase/seed.sql` para cargar el test de ejemplo de Lomax. Sus capturas se suben luego desde el panel.
 4. En **Authentication → Users → Add user**, crea tu usuario con contraseña y marca *Auto Confirm User*.
 5. Hazlo administrador en el SQL Editor:
@@ -72,6 +72,18 @@ api_tokens       hash de los tokens para la carga por API (siguiente etapa)
 
 Lectura pública solo de tests publicados; los borradores los ven únicamente los admins. Toda escritura de tests y capturas pasa por RLS con `is_admin()`.
 
+## Modos de juego
+
+Cada test tiene un `play_mode`, que se recalcula al guardar capturas o importar (`refresh_play_modes()`):
+
+| Modo | Cuándo | Qué hace el visitante |
+| --- | --- | --- |
+| `quiz` | Hay ganadora conocida | Adivina, ve la respuesta, el lift y los aprendizajes. Cuenta para el puntaje |
+| `poll` | Hay capturas pero no ganadora oficial (p. ej. GoodUI) | Vota y ve qué eligió la comunidad. No puntúa |
+| `library` | Ni ganadora ni capturas | Consulta el caso documentado (hipótesis, cambio, resultado declarado, aprendizajes). No se vota |
+
+`/jugar` ofrece primero los quizzes y luego las encuestas. El archivo filtra por *Encuestas* y *Biblioteca*.
+
 ## Importar el archivo (`archivo/`)
 
 La carpeta `archivo/` (no se versiona: son datos de terceros) trae dos fuentes con carencias opuestas. Para importar, déjala en la raíz del proyecto con los CSV/JSON, más `imagenes-casos.json` y `titulos-es.json` que generan/escriben los scripts:
@@ -107,6 +119,7 @@ npm run import:archivo                  # importa como borradores y sube las cap
   ```
 
 - **Capturas de los casos con resultado.** Esos casos no traen imágenes, pero sus páginas de origen sí muestran control y variación. `node scripts/harvest-images.mjs` las localiza (por texto alternativo, nombre de archivo o frase previa) y escribe `archivo/imagenes-casos.json`; el importador lo usa si existe. Descarta las parejas con una miniatura (menos de 400 px de ancho y menos de 700 de alto), las páginas que reúnen varios casos y las que no se pueden emparejar. Avisos nuevos: `images_from_source_page`, `images_multiple_tests` (la página muestra más de un test; confirma que el par corresponde), `images_composite_only` (solo hay una imagen con ambas versiones), `images_shared_page`, `images_discarded`.
+- **Orden recomendado:** `--only=jugables` (quizzes con capturas) → `--only=goodui` (encuestas) → `--only=casos` (el resto entra como biblioteca; lo ya importado se omite).
 - Para publicar en bloque lo que ya revisaste: `update public.tests set status = 'publicado' where source_id like 'GU-%';`
 
 Los textos de origen están en inglés; el título, el contexto y los aprendizajes se importan tal cual y conviene traducirlos al revisar.
