@@ -24,9 +24,14 @@ export default async function AdminHome({ searchParams }: Props) {
     <div style={{ display: "grid", gap: "1rem" }}>
       <div className="section-head">
         <h1 style={{ fontSize: "1.8rem" }}>Tests</h1>
-        <Link className="btn primary" href="/admin/tests/nuevo">
-          Nuevo test
-        </Link>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <Link className="btn" href="/admin/tokens">
+            Tokens de API
+          </Link>
+          <Link className="btn primary" href="/admin/tests/nuevo">
+            Nuevo test
+          </Link>
+        </div>
       </div>
       {borrado && <p className="msg ok">Test borrado, junto con sus capturas.</p>}
       {error && <p className="msg err">No se pudo leer la lista: {error.message}</p>}
