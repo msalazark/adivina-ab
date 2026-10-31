@@ -134,10 +134,36 @@ Los textos de origen están en inglés; el título, el contexto y los aprendizaj
 
 Los casos vienen de sitios como GuessTheTest, VWO, Optimizely, GoodUI o Growth.Design. Las capturas de GoodUI son material de su membresía: copiarlas a un sitio público puede incumplir sus términos; confirma con ellos o publica solo el catálogo con enlace a la fuente. Escribe el contexto y los aprendizajes con tus palabras y enlaza siempre la fuente. Si el sitio va a ser público, revisa los términos de cada fuente antes de publicar sus capturas.
 
-## Siguiente etapa: carga por API con token
+## Carga por API con token
 
-La tabla `api_tokens` ya existe (guarda solo el hash SHA-256). El plan:
+1. Crea un token en **`/admin/tokens`** (se muestra una sola vez; en la base solo queda su hash SHA-256). Desde ahí también se revoca.
+2. Envía los tests a `POST /api/v1/tests` con `Authorization: Bearer <token>`. Entran como **borrador** salvo que mandes `"status": "publicado"`.
+3. Revisa y publica desde el panel. Cada test cargado por API lleva el aviso `api:<nombre del token>` en `review_flags`.
 
-1. Generar y revocar tokens desde `/admin/tokens`.
-2. `POST /api/v1/tests` con `Authorization: Bearer <token>`: recibe el test en JSON y las capturas (URL o base64), las sube a Storage y crea el test como borrador.
-3. Revisar y publicar desde el panel.
+```bash
+curl -X POST https://adivina-ab.vercel.app/api/v1/tests \
+  -H "Authorization: Bearer $AAB_TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "source_id": "GTT-NL-1a1879bb-1",
+    "title": "¿Qué cabecera móvil ganó: título simple o cabecera completa?",
+    "category": "Mobile", "device": "Mobile",
+    "source_name": "GuessTheTest (boletín)",
+    "context": "…", "hypothesis": "…",
+    "results_locked": true,
+    "variants": [
+      { "name": "Título simple", "description": "…", "images": [{ "url": "https://…/a.png", "label": "Mobile" }] },
+      { "name": "Cabecera completa", "description": "…", "images": [{ "url": "https://…/b.png", "label": "Mobile" }] }
+    ]
+  }'
+```
+
+- **Idempotente por `source_id`**: si ya existe, no se toca y responde `{"created": false}`.
+- **Capturas por URL https**: el servidor las descarga (máx. 5 MB, PNG/JPG/WebP/GIF) y las sube al bucket. Las que fallan vuelven en `image_errors` y el test recibe el aviso `images_failed`; las de menos de 400 px de ancho, `images_low_res`.
+- Sin `winner`, el test queda como encuesta (si tiene capturas) o biblioteca. `play_mode` se recalcula al crear.
+- `GET /api/v1/tests?source_id_prefix=GTT-NL-` devuelve los `source_id` ya cargados con ese prefijo.
+
+Campos aceptados: `source_id`, `title` (obligatorios), `variants` (2–3, con `name`, `description`, `images[]`), y opcionales `company`, `industry`, `country`, `category`, `device`, `tool`, `source_name`, `source_url`, `context`, `hypothesis`, `winner`, `metric`, `lift`, `confidence`, `summary`, `learnings[]`, `ideas[]`, `tags[]`, `status`, `outcome`, `results_locked`, `tested_on`, `review_flags[]`, `raw`.
+
+### Boletín de GuessTheTest
+
+Una tarea programada de Claude lee cada día los correos de `deborah@guessthetest.com`, extrae los tests de cada boletín (pregunta, versión A/B y sus capturas) y los envía a esta API con `source_id` `GTT-NL-<id del correo>-<n>`. El boletín no trae la ganadora (está en guessthetest.com), así que entran como encuesta y con `results_locked = true`; si conoces el resultado, complétalo en el panel.
